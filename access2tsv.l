@@ -43,11 +43,13 @@ static char tstamp[] = "0000-00-00T00:00:00-0000";
 \n              ECHO;               /* Preserve newlines */
 
 \"              BEGIN(STR);         /* Start parsing a quoted field, switch to different set of rules */
-<STR>[^\\\"]+   ECHO;               /* Print anything that's not a backslash or quote */
+<STR>[^\\\"\n]+ ECHO;               /* Print anything that's not a backslash, quote, or newline */
 <STR>\\[\\\"]   putc(yytext[1], yyout);   /* Un-escape quotes and slashes */
-<STR>[\"\n]     BEGIN(INITIAL);     /* Found the endquote, return to initial parsing rules 
-                                       Also matches newline, to prevent crashes on mis-quoted fields*/
-
+<STR>\"         BEGIN(INITIAL);     /* Found the endquote, return to initial parsing rules */
+<STR>\n         {                   /* Match newline, means there's been a misquoted string. Emit warning.*/
+                        fputs("\t!!!!\n", yyout);
+                        BEGIN(INITIAL);
+                } 
 "["             BEGIN(DATE);        /* Start parsing the timestamp */
 <DATE>{
 ([0-9]{2}:){2}[0-9]{2}  memcpy(tstamp + 11, yytext, 8);    /* Match the time, HH:MM:SS, and save it */
